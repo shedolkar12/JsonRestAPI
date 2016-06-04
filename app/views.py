@@ -36,15 +36,22 @@ def provider_info(request, id):
 
     try:
         prov = Provider.objects.filter(provider_id=id)
+        s = ProviderSerializer(prov, many=True)
     except Provider.DoesNotExist:
         return Response(status=status.HTTP_404_NOT_FOUND)
 
     if request.method=='GET':
-        s = ProviderSerializer(prov, many=True)
         return Response(s.data)
     elif request.method=='DELETE':
         prov.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
-    # elif request.method=='PUT':
+    elif request.method=='PUT':
+        data = request.data
+        instance = prov[0]
+        for attr, value in data.iteritems():
+            print attr, value,prov
+            setattr(instance, attr, value)
+        instance.save()
+        return Response(s.data)
 
     return HttpResponse('hi')
