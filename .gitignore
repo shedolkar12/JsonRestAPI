@@ -1,0 +1,5 @@
+*.pyc
+db.sqlite3
+0001_initial.py
+migrations
+test.py
