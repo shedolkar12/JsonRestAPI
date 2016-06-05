@@ -54,4 +54,63 @@ def provider_info(request, id):
         instance.save()
         return Response(s.data)
 
-    return HttpResponse('hi')
+@api_view(['GET', 'POST'])
+def service_area(request, id):
+    try:
+        prov = Provider.objects.filter(provider_id=id)
+        s = ProviderSerializer(prov, many=True)
+    except Provider.DoesNotExist:
+        return Response(status=status.HTTP_404_NOT_FOUND)
+
+    if request.method=='GET':
+        query = {
+            "query": {
+                "match": {
+                    "provider_id": id
+                    }
+                }
+            }
+        data = []
+        try:
+            result = es.search(index='tt', body=query)
+            for d in result['hits']['hits']:
+                data.append(d['_source'])
+        except:
+            pass
+        return Response({'data':data})
+    elif request.method=='POST':
+        data = request.data
+        for attr in ['area_name', 'price', 'area']:
+            if attr not in data:
+                return Response(status=status.HTTP_404_NOT_FOUND)
+            else:
+                if attr=='price':
+                    try:
+                        data[attr] = float(attr)
+                    except ValueError:
+                        return Response(status=status.HTTP_404_NOT_FOUND)
+                elif attr=='area':
+                    for point in data['area']:
+                        i=0
+                        try:
+                            point[0] = float(point[0])
+                            point[1] = float(point[1])
+                            data['area'][i] = point
+                            i+=1
+                        except ValueError:
+                            return Response(status=status.HTTP_404_NOT_FOUND)
+            polygon_id = uuid.uuid4().hex
+            final_data = {
+            "provider_id": id,
+            "area_id": polygon_id,
+            "area_name": data["area_name"],
+            "price": data["price"],
+            "location": {
+                    "type": "polygon",
+                    "coordinates": [ data["area"] ]
+                    },
+            }
+            print final_data
+            es.index(index="tt", doc_type="list", id=polygon_id, body=final_data)
+
+            return Response(final_data)
